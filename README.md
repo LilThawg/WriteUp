@@ -334,6 +334,7 @@ Mình có đọc được write up một bài tương tự : https://github.com/
 
 Ta đã biết HMAC hoạt động ra sao, giờ hãy quay lại bài, ta có thể sử dụng sign_old để tính cái đoạn H(K^i_pad||m) này : 
 ![image](https://user-images.githubusercontent.com/72289126/144284261-d601066d-536e-49b7-9409-45976fa6d226.png)
+
 Nếu ta gửi `b'\x36'*64+msg` cho sign_old ta có thể tính được H = md5(i_key_pad + msg).digest()
 ```python
 from binascii import hexlify, unhexlify
