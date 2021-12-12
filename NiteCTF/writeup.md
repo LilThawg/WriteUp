@@ -276,3 +276,113 @@ b'\xa7\x19\x19+A\xfc\xd5F\x81A\xb8t\x8c\x0f\xe4+ $\xc2N\x95g\x1a\xc1\x12J\xe6Y\x
 
 đọc thêm : https://github.com/ashutosh1206/Crypton/tree/master/RSA-encryption/Attack-Retrieve-Modulus
 
+## Flip Me Over
+```
+Description : AES-CBC apparently had a lot of flippy stuff so we tried to strengthen it using our custom anti-flippy cbc implementation. Can you break this and get the flag?
+```
+
+Nghe tên bài + AES-CBC thì là bit flip chứ còn gì nữa =))
+
+```python
+from Crypto.Cipher import AES
+from Crypto.Util.number import *
+import os
+from Crypto.Util.Padding import pad,unpad
+from Crypto.Util.strxor import strxor
+import random
+import hashlib
+FLAG = b'lethethang2909'
+
+KEY = os.urandom(16)
+entropy = hashlib.md5(os.urandom(128)).digest()
+
+def generate_token(username):
+    iv = os.urandom(16)
+    try:
+        pt = bytes.fromhex(username)
+    except:
+        print("Invalid input.")
+        exit(0)
+    if b'gimmeflag' in pt:
+        print("Nah not allowed.")
+        exit(0)
+    cipher = AES.new(KEY,AES.MODE_CBC,iv)
+    ct = cipher.encrypt(pad(pt,16))
+    tag = b'\x00'*16
+    for i in range(0,len(ct),16):
+        tag = strxor(tag,ct[i:i+16])
+    tag = strxor(tag,iv)
+    tag = strxor(tag,entropy)
+    return tag.hex()+ct.hex()
+
+def verify(tag,token):
+    try:
+        tag = bytes.fromhex(tag)
+        ct = bytes.fromhex(token)
+    except:
+        print("Invalid input")
+        exit(0)
+    for i in range(0,len(ct),16):
+        tag = strxor(tag,ct[i:i+16])
+    tag = strxor(tag,entropy)
+    iv = tag
+    cipher = AES.new(KEY,AES.MODE_CBC,iv)
+    username = cipher.decrypt(ct)
+    return username.hex()
+
+print("Hello new user")
+print("We shall allow you to generate one token:")
+print("Enter username in hex():")
+username = input()
+token = generate_token(username)
+print(token)
+while True:
+    print("Validate yourself :)")
+    print("Enter token in hex():")
+    token = input()
+    print("Enter tag in hex():")
+    tag = input()
+    if b'gimmeflag'.hex() in verify(tag,token):
+        print("Oh no u flipped me...")
+        print("I am now officially flipped...")
+        print("Here's ur reward...")
+        print(FLAG)
+        break
+    else:
+        print("Something went wrong...")
+        print(f"Is your username {verify(tag,token)}")
+        print("Smthin looks fishy")
+        print("Pls try again :(")
+        print()
+    entropy = hashlib.md5(entropy).digest()
+```
+
+Bài này không khó, vẽ hình ra xíu là làm được à ...
+
+```python
+from pwn import *
+from Crypto.Util.Padding import pad,unpad
+r = remote("flipmeover.chall.cryptonite.team",1337)
+r.recvuntil(b"Enter username in hex():")
+username = (b"\x00"*9).hex()
+r.sendline(username.encode())
+r.recvline()
+token = r.recvline().strip().decode()
+tag = token[:32]
+token = token[32:]
+target = pad(b"gimmeflag",16)
+tagFake = xor(bytes.fromhex(tag),target)
+r.recvuntil(b"Enter token in hex():")
+r.sendline(token.encode())
+r.recvuntil(b"Enter tag in hex():")
+r.sendline(tagFake.hex().encode())
+r.interactive()
+```
+
+```
+output
+Oh no u flipped me...
+I am now officially flipped...
+Here's ur reward...
+nite{flippity_floppity_congrats_you're_a_nerd}
+```
