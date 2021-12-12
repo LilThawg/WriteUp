@@ -386,3 +386,150 @@ I am now officially flipped...
 Here's ur reward...
 nite{flippity_floppity_congrats_you're_a_nerd}
 ```
+
+## NJWT
+
+`Description : Well we all know that JWT has a lot of issues. So we decided to make our own custom implementation called NotJWT. Hopefully its not vulnerable to the same things JWT is.`
+
+`NJWT.py`
+
+```python
+import base64
+from Crypto.Util.number import *
+import sys
+import random
+import os
+import sympy
+
+class NJWT:
+    n = 1
+    e = 1
+    d = 1
+
+    def __init__(self):
+        self.genkey()
+        return
+
+    def genkey(self):
+        p = getStrongPrime(1024)
+        q = p
+        k = random.randint(0,100)
+        for _ in range(k):
+            q += random.randint(0,100)
+        q = sympy.nextprime(q)
+        self.n = p*q
+        self.e = 17
+        self.d = inverse(self.e,(p-1)*(q-1))
+        return
+
+    # Utility function to just add = to base32 to ensure right padding
+    def pad(self,data):
+        if len(data)%8 != 0:
+            data += b"=" * (8-len(data)%8)
+        return data
+
+    def sign(self,token):
+        sig = long_to_bytes(pow(bytes_to_long(token),self.d,self.n))
+        return sig
+
+    def generate_token(self,username):
+        if 'admin' in username:
+            print("Not authorized to generate token for this user")
+            return "not_auth"
+
+        header = b'{"alg": "notRS256", "typ": "notJWT"}'
+        payload = b'{user : "' + username.encode() + b'", admin : False}'
+        token = header + payload
+        sig = self.sign(token)
+        # Base-32 and underscores cuz its NOT JWT
+        token = base64.b32encode(header).decode().strip("=") + "_" + base64.b32encode(payload).decode().strip("=") + "_" + base64.b32encode(sig).decode().strip("=")
+        return token
+
+    def verify_token(self,token):
+        data = token.split("_")
+        header = base64.b32decode(self.pad(data[0].encode()))
+        if header != b'{"alg": "notRS256", "typ": "notJWT"}':
+            return "invalid_header"
+
+        payload = base64.b32decode(self.pad(data[1].encode()))
+
+        if not b'admin : True' in payload:
+            return "access_denied"
+            
+        given_sig = bytes_to_long(base64.b32decode(self.pad(data[2].encode())))
+        msg = long_to_bytes(pow(given_sig,self.e,self.n))
+        if msg == header+payload:
+            return "Success"
+        else:
+            return "invalid_signature"
+        return
+```
+
+~~bài này nghĩ cả ngày k ra mà lúc đọc wu nó dễ quá ạ :( f^ck~~ 
+
+Vẫn là `recover n` nhưng lần này khi kí ta chỉ biết e và không biết d.
+
+<img src="https://latex.codecogs.com/svg.image?\\&space;s1&space;\equiv&space;&space;(m1)^{d}&space;\mod&space;n\\\&space;s2&space;\equiv&space;&space;(m2)^{d}&space;\mod&space;n\&space;" title="\\ s1 \equiv (m1)^{d} \mod n\\\ s2 \equiv (m2)^{d} \mod n\ " />
+
+Mũ e 2 vế ta được :
+
+<img src="https://latex.codecogs.com/svg.image?\\&space;(s1)^{e}&space;\equiv&space;&space;m1&space;\mod&space;n\\\&space;(s2)^{e}&space;\equiv&space;&space;m2&space;\mod&space;n\&space;" title="\\ (s1)^{e} \equiv m1 \mod n\\\ (s2)^{e} \equiv m2 \mod n\ " />
+
+Cuối cùng ta được : 
+
+<img src="https://latex.codecogs.com/svg.image?\\&space;(s1)^{e}&space;-&space;m1&space;=&space;kN\\&space;(s2)^{e}&space;-&space;m2&space;=&space;hN&space;" title="\\ (s1)^{e} - m1 = kN\\ (s2)^{e} - m2 = hN " />
+
+đến đây ta có thể tính được N rồi : 
+
+```python
+import base64
+from Crypto.Util.number import *
+import math
+def pad(data):
+    if len(data) % 8 != 0:
+        data += b"=" * (8 - len(data) % 8)
+    return data
+
+e = 17
+m1 = b'{"alg": "notRS256", "typ": "notJWT"}'+b'{user : "' + b'a' + b'", admin : False}'
+m1 = bytes_to_long(m1)
+s1 = "OFZPOXVXMDD6GJTOSZWFAF2DLXUAOHRSN5LDWH55DCP6FGEB2BDDNIYEQPQKKAVCYSWTG25OGA2CZFJM7LHL5YMSFDS6GH7ZCDIEZ2TOX2GRW5Q34NEFOI4NGASRVJUZFVD7YC4CWKDZBDMJRK3JDVHOO4FYNAL3WKVXENSELDEOGO7IBRYBWD7R3OTQD7SUK53NLWTMDDBKA"
+s1 = base64.b32decode(pad(s1.encode()))
+s1 = bytes_to_long(s1)
+kN = s1**e-m1
+
+m2 = b'{"alg": "notRS256", "typ": "notJWT"}'+b'{user : "' + b'b' + b'", admin : False}'
+m2 = bytes_to_long(m2)
+s2 = "JGB65ZOFXNAEEPXBZQR4CXJLIDC643UNM4OO6Y5KHDGDRFGFNMCCKC5RMIQSYLFFN5LLPMUT5JEZCVWKJP2A47MU4LZABFBDI2YANM4S7NW2PEXE2J4PAWJOZKCCS5WFXDPWFZEUIKQRCA7GOVCP2ASNNWNDZTEGO5MVIKK253ASD7GXQ7JVGHD527RDX7PAU4WNAWRIZMAJY"
+s2 = base64.b32decode(pad(s2.encode()))
+s2 = bytes_to_long(s2)
+hN = s2**e-m2
+
+N = math.gcd(kN,hN)
+print(N)
+#102023933594675885727482433536439603313632025195349898254625572154788087636596726779743824870900843601539817993317820155294998954199744518048988886468997222220666721611696723040994762222197748727494695173456938071542809742020103628264792844624806487145961325583122253303731850753231923830549425654252156250831
+```
+Đem n đi factor ta được p,q :
+
+![image](https://user-images.githubusercontent.com/72289126/145713339-c9b09769-b19c-4a92-bbc8-35c7561b19f0.png)
+
+Tìm được n xong thì mọi thứ ez rồi :D
+
+```python
+p = 10100689758361845940152847780003783431536611814466949762123436043866022425559374294766769331161147305436476202608669069280862160355739741762723891797772291
+q = 10100689758361845940152847780003783431536611814466949762123436043866022425559374294766769331161147305436476202608669069280862160355739741762723891797775941
+d = inverse(e,(p-1)*(q-1))
+
+header = b'{"alg": "notRS256", "typ": "notJWT"}'
+payload = b'{user : "LilThawg", admin : True}'
+sig = base64.b32encode(long_to_bytes(pow(bytes_to_long(header+payload),d,N))).strip(b"=").decode()
+payload = base64.b32encode(payload).decode().strip("=")
+header = base64.b32encode(header).decode().strip("=")
+token = header+"_"+payload+"_"+sig
+print(token)
+#PMRGC3DHEI5CAITON52FEUZSGU3CELBAEJ2HS4BCHIQCE3TPORFFOVBCPU_PN2XGZLSEA5CAISMNFWFI2DBO5TSELBAMFSG22LOEA5CAVDSOVSX2_AEFAFG6LRYIBORBFB4XTQ7C4XE3YCXFNWMRQ3LMJROBKUPESLC3QXL77KDZGAQDORHUDWDA4VVJHXJ753Q3T3SCTRA6O5FG6QVJMCMQIYZC2JDOHFSFKA54MLJV2SRTWLZU6TSWFCQKEY7OAYUCYRNS2TDQW5YNZTQMK7FXW6HYGSOWBFD6TTST6MO2KYP4ZQ44IGG2MAVWUK
+```
+
+Post lên server và lấy flag thôi !
+
+![image](https://user-images.githubusercontent.com/72289126/145713418-547d1aad-93f3-4e1e-b7ab-4e5681eeed6d.png)
