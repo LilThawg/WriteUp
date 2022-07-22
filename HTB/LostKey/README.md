@@ -11,7 +11,7 @@ else:
     Lambda = (3*(P.x*Q.x) + 417826948860567519876089769167830531934*P.x + 177776968102066079765540960971192211603) * inverse(P.y+Q.y+3045783791, self.p)
 ```
 
-Thế nhưng lambda nó lạ lắm =))) thông thường lambda = `3*x1^2 + a / 2*y1` nếu P = Q
+Thế nhưng lambda nó lạ lắm =))) thông thường lambda = `(3*x1^2 + a) / 2*y1` nếu P = Q
 
 ![image](https://lilthawg29.files.wordpress.com/2021/09/image-210.png)
 
