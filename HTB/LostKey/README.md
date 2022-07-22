@@ -101,7 +101,7 @@ Thế nhưng khi thử lại ta biết đây không phải là đáp án ta cầ
 
 ![image](./img/Screenshot%202022-07-22%20184146.png)
 
-Do vậy `n = x + k*N (n < 38685626227668133590597631)`  
+Do vậy CTTQ của n là: `n = x + k*N (n < 38685626227668133590597631)`, ta brute-force k là được 
 
 ```py
 x, N = pohlig_hellman_ecc(G, Gn)
